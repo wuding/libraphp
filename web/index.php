@@ -9,14 +9,9 @@ define('TXT_EOL', "\r\n");
 
 class HTTP
 {
-    private static $funcArgs = array(
-        'srvInfo' => array(),
-    );
-
     public function __construct($srvInfo = [])
     {
-        self::$funcArgs['srvInfo'] = $srvInfo = $srvInfo ? : $_SERVER;
-        # print_r($srvInfo);
+
     }
 
     public function __destruct()
@@ -54,6 +49,16 @@ class Request extends HTTP
             'host' => null,
             'query' => null,
         ),
+        'path' => array(
+            'dirname' => null,
+            'basename' => null,
+            'extension' => null,
+            'filename' => null,
+        ),
+        'query' => array(
+            'basename' => null,
+            'uri-scheme' => null,
+        ),
         'content' => array(
             'filename' => 'null',
             'title' => 'null',
@@ -61,33 +66,43 @@ class Request extends HTTP
         ),
     );
 
-    public function __construct($srvInfo = [])
+    public function request($srvInfo = array())
     {
-        $srvInfo = $srvInfo ? : $_SERVER;
-        parent::__construct($srvInfo);
-
-        self::$request['uri'] = $requestUri = preg_replace('/^\/+/', '', $srvInfo['REQUEST_URI']);
+        self::$vars['srvInfo'] = $srvInfo = $srvInfo ? : self::$srvInfo;
+        self::$vars['request']['uri'] = $requestUri = preg_replace('/^\/+/', '', $srvInfo['REQUEST_URI']);
         self::$vars['request']['uriDecode'] = urldecode($requestUri);
+    }
 
-        $urlParse = parse_url($requestUri);
+    public function urlInfo()
+    {
+        $urlParse = parse_url(self::$vars['request']['uri']);
         self::$vars['urlInfo'] = $urlInfo = array_merge(self::$vars['urlInfo'], $urlParse);
         $pathDecode = urldecode(self::$vars['urlInfo']['path']);
         $pathDecode = preg_replace('/[\+]+\/n[\+]+/', ' \n ', $pathDecode);
         self::$vars['urlInfo']['path'] = urlencode($pathDecode);
         $urlInfo = self::$vars['urlInfo'];
+        return get_defined_vars();
+    }
 
+    public function pathInfo()
+    {
+        $pathInfo = pathinfo(self::$vars['urlInfo']['path']);
+        self::$vars['path'] = array_merge(self::$vars['path'], $pathInfo);
+        return get_defined_vars();
+    }
 
-        $pathInfo = pathinfo($urlInfo['path']);
-        self::$path = array_merge(self::$path, $pathInfo);
+    public function queryInfo()
+    {
+        $baseName = self::$vars['path']['basename'];
+        self::$vars['query']['basename'] = $queryOnce = urldecode($baseName);
+        return get_defined_vars();
+    }
 
-        $baseName = $pathInfo['basename'];
-        self::$query['basename'] = $queryOnce = urldecode($baseName);
-
-        // 修正文件名、标题和描述
-
+    public function contentInfo($pathDecode)
+    {
         $cmd_stdin = preg_split('/\s+\/n\s+/', $pathDecode);
         $cmd_count = count($cmd_stdin);
-        self::$vars['content']['filename'] = self::$vars['content']['title'] = self::$query['basename'];
+        self::$vars['content']['filename'] = self::$vars['content']['title'] = self::$vars['query']['basename'];
         self::$vars['content']['description'] = self::$vars['request']['uriDecode'];
         if (1 < $cmd_count) {
              self::$vars['content']['filename'] = $cmd_stdin[0];
@@ -95,22 +110,33 @@ class Request extends HTTP
              self::$vars['content']['description'] = $cmd_stdin[2];
         }
         # print_r($cmd_stdin);exit;
+    }
+
+    public function __construct($srvInfo = [])
+    {
+        $srvInfo = $srvInfo ? : $_SERVER;
+
+        // 请求、地址、路径、查询
+        self::request($srvInfo);
+        extract(self::urlInfo());
+        extract(self::pathInfo());
+        extract(self::queryInfo());
+
+        // 修正文件名、标题和描述
+        self::contentInfo($pathDecode);
 
         $flags = array(
             'urlCode' => null,
         );
-
-        // self::$vars['content'] = array_merge(self::$vars['content'], array('filename' => self::$query['basename'], 'title' => self::$query['basename'], 'description' => self::$vars['request']['uriDecode']));
-
 
         // URL 编码
         if (preg_match_all('/(%[a-z0-9]{2})/i', $baseName, $matches)) {
             $flags['$flags'] = true;
         }
         // 协议
-        if (preg_match('/^([a-z0-9]+):(.*)/i', $requestUri, $matches)) {
+        if (preg_match('/^([a-z0-9]+):(.*)/i', self::$vars['request']['uri'], $matches)) {
             # $urlInfo['scheme']
-            self::$query['uri-scheme'] = $matches[1];
+            self::$vars['query']['uri-scheme'] = $matches[1];
         }
 
         // 系统应用
@@ -159,9 +185,6 @@ class Request extends HTTP
         SNSearch::_resetConf('domain');
 
         $SNSearch = SNSearch::$pathRules;
-        $query = self::$query;
-        $request = self::$request;
-        $path = self::$path;
         $vars = self::$vars;
         $var = print_r(get_defined_vars(), true);
         if (isset($_GET['debug_var'])) {
@@ -237,6 +260,26 @@ class SNSearch
         # print_r([Request::$query['basename'], $sysApp]);
         # echo false !== array_search(Request::$query['basename'], $sysApp);exit;
         // 命令行
+        self::_cli();
+
+        // 系统应用
+        self::_sysApplication();
+
+        // URI 协议
+        self::_uriScheme();
+
+        // 扩展名和域名
+        self::_dot();
+
+        // 关键词
+        self::_keyword();
+
+        // URI
+        self::_uri();
+    }
+
+    public function _cli()
+    {
         if (Request::$vars['urlInfo']['path']) {
             $pathDecode = urldecode(Request::$vars['urlInfo']['path']);
             $cmd_stdin = preg_split('/\s+\/n\s+/', $pathDecode);
@@ -247,8 +290,10 @@ class SNSearch
             # Request::$query['basename'] = $cmd_stdin[0];
             Request::$vars['content'] = array_merge(Request::$vars['content'], array('filename' => $filename, 'title' => $title, 'description' => $description));
         }
-        
-        // 系统应用
+    }
+
+    public function _sysApplication()
+    {
         if (Request::$query['basename']) {
             $sysApp = self::_textDb(null, 'system_appliaction', true) ? : [];
             # var_dump(Request::$query['basename'], $sysApp, static::$pathRules['system_appliaction']);
@@ -266,8 +311,10 @@ class SNSearch
             # echo 'unknow' . HTML_EOL;
             # return true;
         }
+    }
 
-        // URI 协议
+    public function _uriScheme()
+    {
         if (Request::$query['uri-scheme']) {
             $sysApp = self::_textDb(null, 'uri-scheme', true);
             echo 'uri-scheme' . HTML_EOL;
@@ -285,8 +332,10 @@ class SNSearch
             echo 'unknow' . HTML_EOL;
             return true;
         }
+    }
 
-        // 扩展名和域名
+    public function _dot()
+    {
         if (null !== Request::$path['extension']) {
             if ('.' == Request::$path['dirname']) {
                 echo 'root path' . HTML_EOL;
@@ -304,8 +353,10 @@ class SNSearch
 
             return true;
         }
+    }
 
-        // 关键词
+    public function _keyword()
+    {
         $sysApp = self::_textDb(null, 'keyword', true);
         $md5 = md5(Request::$query['basename']);
         $filename = self::$funcArgs['dbname'] . "/keyword/$md5.txt";
@@ -333,13 +384,15 @@ class SNSearch
                 file_put_contents($filename, implode(HTML_EOL, Request::$vars['content']) . HTML_EOL, FILE_APPEND);
             }
         }
+    }
 
-        // URI
+    public function _uri()
+    {
         $keyWord = self::_textDb(null, 'uri', true);
         $md5 = md5(Request::$vars['request']['uriDecode']);
         $filename = self::$funcArgs['dbname'] . "/uri/$md5.txt";
         if (false !== array_search(Request::$vars['request']['uriDecode'], $keyWord ? : [])) {
-            echo Request::$vars['request']['uriDecode'];
+            # echo Request::$vars['request']['uriDecode'];
             if (file_exists($filename)) {
                 echo file_get_contents($filename);
             }
@@ -353,7 +406,7 @@ class SNSearch
 
     public function __run()
     {
-        echo __FILE__;
+        # echo __FILE__;
     }
 
     public static function _resetConf($section = null)
@@ -387,7 +440,7 @@ class SNSearch
 
     public function __call($name, $arguments)
     {
-        print_r(get_defined_vars());
+        # print_r(get_defined_vars());
     }
 
     public static function _action()
@@ -411,5 +464,5 @@ $snsrch = new SNSearch(__FILE__);
 $_VAR[__FILE__]['Request'] = get_class_vars(Request::class);
 # include 'template.html';
 # return true;
-return $snsrch->_action();
+return $snsrch->_actions();
 echo 'Hello';
