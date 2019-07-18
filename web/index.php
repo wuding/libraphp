@@ -60,9 +60,12 @@ class Request extends HTTP
             'uri-scheme' => null,
         ),
         'content' => array(
-            'filename' => 'null',
-            'title' => 'null',
-            'description' => 'null',
+            'filename' => null,
+            'title' => null,
+            'description' => null,
+        ),
+        'flags' => array(
+            'urlCode' => null,
         ),
     );
 
@@ -112,6 +115,28 @@ class Request extends HTTP
         # print_r($cmd_stdin);exit;
     }
 
+    public function sysAppDef($item = 'system_appliaction')
+    {
+        $sysAppDef = explode(',', SNSearch::$pathRules[$item]['']);
+        foreach ($sysAppDef as $sysAppName) {
+            SNSearch::$pathRules[$item][$sysAppName] = array();
+        }
+        unset(SNSearch::$pathRules[$item]['']);
+
+        if ('system_appliaction' == $item) {
+            return true;
+        }
+
+        foreach (SNSearch::$pathRules[$item] as $uriSchm => $uriSchmInfo) {
+            if (is_numeric($uriSchm)) {
+                unset(SNSearch::$pathRules[$item][$uriSchm]);
+                foreach ($uriSchmInfo as $uriSchmName) {
+                    SNSearch::$pathRules[$item][$uriSchmName] = array();
+                }
+            }
+        }
+    }
+
     public function __construct($srvInfo = [])
     {
         $srvInfo = $srvInfo ? : $_SERVER;
@@ -125,14 +150,11 @@ class Request extends HTTP
         // 修正文件名、标题和描述
         self::contentInfo($pathDecode);
 
-        $flags = array(
-            'urlCode' => null,
-        );
-
         // URL 编码
         if (preg_match_all('/(%[a-z0-9]{2})/i', $baseName, $matches)) {
-            $flags['$flags'] = true;
+            self::$vars['flags']['urlCode'] = true;
         }
+
         // 协议
         if (preg_match('/^([a-z0-9]+):(.*)/i', self::$vars['request']['uri'], $matches)) {
             # $urlInfo['scheme']
@@ -140,46 +162,13 @@ class Request extends HTTP
         }
 
         // 系统应用
-        /*
-        foreach ($pathRules['system_appliaction'] as $sysApp => $sysAppInfo) {
-
-        }*/
-        $sysAppDef = explode(',', SNSearch::$pathRules['system_appliaction']['']);
-        foreach ($sysAppDef as $sysAppName) {
-            SNSearch::$pathRules['system_appliaction'][$sysAppName] = array();
-        }
-        # SNSearch::$pathRules['system_appliaction'] = array_merge(SNSearch::$pathRules['system_appliaction'], $sysAppDef);
-        unset(SNSearch::$pathRules['system_appliaction']['']);
+        self::sysAppDef();
 
         // URI 协议
-        $sysAppDef = explode(',', SNSearch::$pathRules['uri-scheme']['']);
-        foreach ($sysAppDef as $sysAppName) {
-            SNSearch::$pathRules['uri-scheme'][$sysAppName] = array();
-        }
-        unset(SNSearch::$pathRules['uri-scheme']['']);
-        foreach (SNSearch::$pathRules['uri-scheme'] as $uriSchm => $uriSchmInfo) {
-            if (is_numeric($uriSchm)) {
-                unset(SNSearch::$pathRules['uri-scheme'][$uriSchm]);
-                foreach ($uriSchmInfo as $uriSchmName) {
-                    SNSearch::$pathRules['uri-scheme'][$uriSchmName] = array();
-                }
-            }
-        }
+        self::sysAppDef('uri-scheme');
 
         // 扩展名
-        $sysAppDef = explode(',', SNSearch::$pathRules['filename-extension']['']);
-        foreach ($sysAppDef as $sysAppName) {
-            SNSearch::$pathRules['filename-extension'][$sysAppName] = array();
-        }
-        unset(SNSearch::$pathRules['filename-extension']['']);
-        foreach (SNSearch::$pathRules['filename-extension'] as $uriSchm => $uriSchmInfo) {
-            if (is_numeric($uriSchm)) {
-                unset(SNSearch::$pathRules['filename-extension'][$uriSchm]);
-                foreach ($uriSchmInfo as $uriSchmName) {
-                    SNSearch::$pathRules['filename-extension'][$uriSchmName] = array();
-                }
-            }
-        }
+        self::sysAppDef('filename-extension');
 
         // 域名
         SNSearch::_resetConf('domain');
