@@ -354,7 +354,7 @@ class SNSearch
             if (file_exists($filename)) {
                 echo file_get_contents($filename);
             }
-            exit;
+            # exit;
         } else {
             //print_r(Request::$vars['content']);
             //exit;
@@ -453,5 +453,5 @@ $snsrch = new SNSearch(__FILE__);
 $_VAR[__FILE__]['Request'] = get_class_vars(Request::class);
 # include 'template.html';
 # return true;
-return $snsrch->_actions();
-echo 'Hello';
+# return $snsrch->_actions();
+# echo 'Hello';
