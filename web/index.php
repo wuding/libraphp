@@ -115,28 +115,6 @@ class Request extends HTTP
         # print_r($cmd_stdin);exit;
     }
 
-    public function sysAppDef($item = 'system_appliaction')
-    {
-        $sysAppDef = explode(',', SNSearch::$pathRules[$item]['']);
-        foreach ($sysAppDef as $sysAppName) {
-            SNSearch::$pathRules[$item][$sysAppName] = array();
-        }
-        unset(SNSearch::$pathRules[$item]['']);
-
-        if ('system_appliaction' == $item) {
-            return true;
-        }
-
-        foreach (SNSearch::$pathRules[$item] as $uriSchm => $uriSchmInfo) {
-            if (is_numeric($uriSchm)) {
-                unset(SNSearch::$pathRules[$item][$uriSchm]);
-                foreach ($uriSchmInfo as $uriSchmName) {
-                    SNSearch::$pathRules[$item][$uriSchmName] = array();
-                }
-            }
-        }
-    }
-
     public function __construct($srvInfo = [])
     {
         $srvInfo = $srvInfo ? : $_SERVER;
@@ -162,13 +140,13 @@ class Request extends HTTP
         }
 
         // 系统应用
-        self::sysAppDef();
+        SNSearch::_resetConf();
 
         // URI 协议
-        self::sysAppDef('uri-scheme');
+        SNSearch::_resetConf('uri-scheme');
 
         // 扩展名
-        self::sysAppDef('filename-extension');
+        SNSearch::_resetConf('filename-extension');
 
         // 域名
         SNSearch::_resetConf('domain');
@@ -398,13 +376,18 @@ class SNSearch
         # echo __FILE__;
     }
 
-    public static function _resetConf($section = null)
+    public static function _resetConf($section = 'system_appliaction')
     {
         $sysAppDef = explode(',', self::$pathRules[$section]['']);
         foreach ($sysAppDef as $sysAppName) {
             self::$pathRules[$section][$sysAppName] = array();
         }
         unset(self::$pathRules[$section]['']);
+
+        if ('system_appliaction' == $section) {
+            return true;
+        }
+
         foreach (self::$pathRules[$section] as $uriSchm => $uriSchmInfo) {
             if (is_numeric($uriSchm)) {
                 unset(self::$pathRules[$section][$uriSchm]);
