@@ -22,22 +22,6 @@ class HTTP
 
 class Request extends HTTP
 {
-    public static $query = array(
-        'basename' => null,
-        'uri-scheme' => null,
-    );
-
-    public static $request = array(
-        'uri' => null,
-    );
-
-    public static $path = array(
-        'dirname' => null,
-        'basename' => null,
-        'extension' => null,
-        'filename' => null,
-    );
-
     public static $vars = array(
         'request' => array(
             'uri' => null,
@@ -224,8 +208,8 @@ class SNSearch
         $data = array();
 
         
-        # print_r([Request::$query['basename'], $sysApp]);
-        # echo false !== array_search(Request::$query['basename'], $sysApp);exit;
+        # print_r([Request::$vars['query']['basename'], $sysApp]);
+        # echo false !== array_search(Request::$vars['query']['basename'], $sysApp);exit;
         // 命令行
         self::_cli();
 
@@ -254,22 +238,22 @@ class SNSearch
             # $filename = $title = $description = '';
             list($filename, $title, $description) = $cmd_stdin;
             # print_r($cmd_stdin);
-            # Request::$query['basename'] = $cmd_stdin[0];
+            # Request::$vars['query']['basename'] = $cmd_stdin[0];
             Request::$vars['content'] = array_merge(Request::$vars['content'], array('filename' => $filename, 'title' => $title, 'description' => $description));
         }
     }
 
     public function _sysApplication()
     {
-        if (Request::$query['basename']) {
+        if (Request::$vars['query']['basename']) {
             $sysApp = self::_textDb(null, 'system_appliaction', true) ? : [];
-            # var_dump(Request::$query['basename'], $sysApp, static::$pathRules['system_appliaction']);
+            # var_dump(Request::$vars['query']['basename'], $sysApp, static::$pathRules['system_appliaction']);
             # print_r($sysApp);
             # exit;
-            if (array_key_exists(Request::$query['basename'], static::$pathRules['system_appliaction']) || false !== array_search(Request::$query['basename'], $sysApp)) {
+            if (array_key_exists(Request::$vars['query']['basename'], static::$pathRules['system_appliaction']) || false !== array_search(Request::$vars['query']['basename'], $sysApp)) {
                 echo 'system application' . HTML_EOL;
-                # file_put_contents("$pathname/system_appliaction.txt", Request::$query['basename'] . PHP_EOL, FILE_APPEND);
-                self::_textDb(Request::$query['basename'] . TXT_EOL, 'system_appliaction');
+                # file_put_contents("$pathname/system_appliaction.txt", Request::$vars['query']['basename'] . PHP_EOL, FILE_APPEND);
+                self::_textDb(Request::$vars['query']['basename'] . TXT_EOL, 'system_appliaction');
                 return true;
             }
 
@@ -282,15 +266,15 @@ class SNSearch
 
     public function _uriScheme()
     {
-        if (Request::$query['uri-scheme']) {
+        if (Request::$vars['query']['uri-scheme']) {
             $sysApp = self::_textDb(null, 'uri-scheme', true);
             echo 'uri-scheme' . HTML_EOL;
             echo Request::$request['uri'] . HTML_EOL;
 
             // 检测已经定义的
-            if (array_key_exists(Request::$query['uri-scheme'], self::$pathRules['uri-scheme']) || false !== array_search(Request::$query['uri-scheme'], $sysApp)) {
+            if (array_key_exists(Request::$vars['query']['uri-scheme'], self::$pathRules['uri-scheme']) || false !== array_search(Request::$vars['query']['uri-scheme'], $sysApp)) {
                 
-                self::_textDb(Request::$query['uri-scheme'] . TXT_EOL, 'uri-scheme');
+                self::_textDb(Request::$vars['query']['uri-scheme'] . TXT_EOL, 'uri-scheme');
                 return true;
             }
 
@@ -303,20 +287,20 @@ class SNSearch
 
     public function _dot()
     {
-        if (null !== Request::$path['extension']) {
-            if ('.' == Request::$path['dirname']) {
+        if (null !== Request::$vars['path']['extension']) {
+            if ('.' == Request::$vars['path']['dirname']) {
                 echo 'root path' . HTML_EOL;
             }
 
-            if (array_key_exists(Request::$path['extension'], self::$pathRules['domain'])) {
+            if (array_key_exists(Request::$vars['path']['extension'], self::$pathRules['domain'])) {
                 echo 'domain' . HTML_EOL;
-                self::_textDb(Request::$path['extension'] . TXT_EOL, 'domain');
+                self::_textDb(Request::$vars['path']['extension'] . TXT_EOL, 'domain');
 
-            } elseif (array_key_exists(Request::$path['extension'], self::$pathRules['filename-extension'])) {
+            } elseif (array_key_exists(Request::$vars['path']['extension'], self::$pathRules['filename-extension'])) {
                 echo 'filename-extension' . HTML_EOL;
-                self::_textDb(Request::$path['extension'] . TXT_EOL, 'filename-extension');
+                self::_textDb(Request::$vars['path']['extension'] . TXT_EOL, 'filename-extension');
             }
-            echo Request::$path['extension'];
+            echo Request::$vars['path']['extension'];
 
             return true;
         }
@@ -325,10 +309,10 @@ class SNSearch
     public function _keyword()
     {
         $sysApp = self::_textDb(null, 'keyword', true);
-        $md5 = md5(Request::$query['basename']);
+        $md5 = md5(Request::$vars['query']['basename']);
         $filename = self::$funcArgs['dbname'] . "/keyword/$md5.txt";
-        if (false !== array_search(Request::$query['basename'], $sysApp ? : [])) {
-            # echo Request::$query['basename'] . HTML_EOL;         
+        if (false !== array_search(Request::$vars['query']['basename'], $sysApp ? : [])) {
+            # echo Request::$vars['query']['basename'] . HTML_EOL;
             if (file_exists($filename)) {
                 echo file_get_contents($filename);
             }
@@ -339,14 +323,14 @@ class SNSearch
             Request::$vars['content'] = array_merge(
                 Request::$vars['content'], 
                 array(
-                    'filename' => Request::$vars['content']['filename'] ? : Request::$query['basename'], 
+                    'filename' => Request::$vars['content']['filename'] ? : Request::$vars['query']['basename'],
                     'title' => Request::$vars['content']['title'] ? : '$title', 
                     'description' => Request::$vars['content']['description'] ? : '$description',
                 ),
             );
             # print_r(Request::$vars['content']);
-            self::_textDb(Request::$query['basename'] . TXT_EOL, 'keyword');
-            self::_textDb($md5 . ' ' . Request::$query['basename'] . TXT_EOL, '0_keyword');
+            self::_textDb(Request::$vars['query']['basename'] . TXT_EOL, 'keyword');
+            self::_textDb($md5 . ' ' . Request::$vars['query']['basename'] . TXT_EOL, '0_keyword');
             if (isset($_GET['touch'])) {
                 file_put_contents($filename, implode(HTML_EOL, Request::$vars['content']) . HTML_EOL, FILE_APPEND);
             }
